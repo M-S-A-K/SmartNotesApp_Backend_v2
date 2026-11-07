@@ -19,9 +19,14 @@ Backend API for **Smart Notes** built with .NET (ASP.NET Core), Entity Framework
 
 ## How to Clone
 
-Clone the repository using Git and navigate to the project directory:
+> **Important**: This repository tracks the offline Whisper AI model via **Git LFS**.
+> Install Git LFS first (`brew install git-lfs` on Mac, or [git-lfs.com](https://git-lfs.com/) on Windows), run `git lfs install` once, then `git clone`:
 
 ```bash
+# 1. Ensure Git LFS is installed and initialized
+git lfs install
+
+# 2. Clone the repository
 git clone https://github.com/M-S-A-K/SmartNotesApp_Backend_v2.git
 cd SmartNotesApp_Backend_v2
 ```

@@ -30,7 +30,7 @@ public class VoiceService(AppDbContext db, IWebHostEnvironment env)
         {
             var modelDir = Path.Combine(env.ContentRootPath, "models");
             Directory.CreateDirectory(modelDir);
-            var modelPath = Path.Combine(modelDir, "ggml-small.bin");
+            var modelPath = Path.Combine(modelDir, "ggml-small-ur-en.bin");
 
             if (!File.Exists(modelPath))
             {
