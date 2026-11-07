@@ -1,0 +1,15 @@
+# Build results
+bin/
+obj/
+
+# Rider / Visual Studio / IDE files
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
