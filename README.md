@@ -564,3 +564,4 @@ All demo accounts use the user's first name in lowercase + `1234`:
 | Bilal Hussain | `bilal@smartnotes.pk` | `bilal1234` |
 
 *(Locked note password in demo data: `lock1234`)*
+

@@ -13,3 +13,9 @@ obj/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Offline AI Models (auto-downloaded by VoiceService on first run)
+models/
+
+# User Uploaded Media
+uploads/

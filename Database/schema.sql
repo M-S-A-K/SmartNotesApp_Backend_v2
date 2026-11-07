@@ -248,3 +248,4 @@ INSERT INTO CommandKeywords (language, keyword, action) VALUES
  (N'ur', N'مت بھیجو',         N'exclude_user'),
  (N'ur', N'مت دکھاؤ',         N'exclude_user');
 GO
+

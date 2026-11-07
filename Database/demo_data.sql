@@ -162,3 +162,4 @@ INSERT INTO Messages (sender_id, receiver_id, message_text, shared_note_id, shar
  (9, 7, N'Murree trip ki photos group mein share karna.', NULL, NULL, NULL, 0),
  (6, 10, N'Exam schedule portal par laga diya gaya hai.', NULL, NULL, NULL, 1);
 GO
+
