@@ -19,25 +19,51 @@ Backend API for **Smart Notes** built with .NET (ASP.NET Core), Entity Framework
 
 ## How to Clone
 
-> **Important**: This repository tracks the offline Whisper AI model via **Git LFS**.
-> Install Git LFS first (`brew install git-lfs` on Mac, or [git-lfs.com](https://git-lfs.com/) on Windows), run `git lfs install` once, then `git clone`:
+> **Important**: This repository tracks the offline Whisper AI speech-to-text model (`models/ggml-small-ur-en.bin`, ~487 MB) via **Git LFS**.
+> 
+> The voice model is automatically retrieved through LFS directly into the `models/` directory during clone—no manual model downloads or Python conversions are needed by teammates.
+> 
+> 1. **Install Git LFS first** (`brew install git-lfs` on macOS, or from [git-lfs.com](https://git-lfs.com/) on Windows/Linux).
+> 2. Run `git lfs install` once to initialize the hooks.
+> 3. Then run `git clone`:
 
 ```bash
 # 1. Ensure Git LFS is installed and initialized
 git lfs install
 
-# 2. Clone the repository
+# 2. Clone the repository (downloads code + models/ggml-small-ur-en.bin)
 git clone https://github.com/M-S-A-K/SmartNotesApp_Backend_v2.git
 cd SmartNotesApp_Backend_v2
+
+# (Optional) If the model file in models/ appears as a tiny ~130-byte pointer, pull it:
+git lfs pull
 ```
 
 ---
 
 ## Database Connection Configuration
 
-Before running the backend, update your SQL Server connection details in `appsettings.json` (application configuration file located in the root of the project).
+You can configure your database connection string in either `appsettings.json` or as a local development override in `appsettings.Development.json` (recommended so you don't commit personal passwords).
 
-Open `appsettings.json`:
+### Setting the Connection String in `appsettings.Development.json`:
+
+Create or edit `appsettings.Development.json` in the project root:
+
+```json
+{
+  "ConnectionStrings": {
+    "SmartNotesDb": "Server=localhost,1433;Database=SmartNotesV1;User Id=sa;Password=your_password_here;TrustServerCertificate=True;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+```
+
+Or configure it in `appsettings.json`:
 
 ```json
 {

@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using SmartNotes.Data;
 using SmartNotes.Data.Entities;
 using Whisper.net;
-using Whisper.net.Ggml;
 
 namespace SmartNotes.Services;
 
@@ -32,12 +31,8 @@ public class VoiceService(AppDbContext db, IWebHostEnvironment env)
             Directory.CreateDirectory(modelDir);
             var modelPath = Path.Combine(modelDir, "ggml-small-ur-en.bin");
 
-            if (!File.Exists(modelPath))
-            {
-                await using var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Small);
-                await using var fileWriter = File.OpenWrite(modelPath);
-                await modelStream.CopyToAsync(fileWriter);
-            }
+            if (!File.Exists(modelPath) || new FileInfo(modelPath).Length < 400_000_000)
+                throw new AppException(500, "Whisper model missing or not downloaded. Run: git lfs pull");
 
             // Convert .m4a / .mp3 to 16kHz Mono .wav so Whisper.net can read it
             var wavPath = audioFilePath + ".16k.wav";
