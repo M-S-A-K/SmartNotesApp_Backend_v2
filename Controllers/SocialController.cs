@@ -53,6 +53,17 @@ public class SocialController(SocialService social) : ApiController
     [HttpGet("messages/{friendId:int}")]
     public async Task<IActionResult> GetThread(int friendId) =>
         Ok(await social.GetThread(UserId, friendId));
+    
+    [HttpPut("messages/{messageId:int}/read")]
+    public async Task<IActionResult> MarkRead(int messageId)
+    {
+        await social.MarkRead(UserId, messageId);
+        return Ok(new { messageId });
+    }
+
+    [HttpPut("messages/read-all/{friendId:int}")]
+    public async Task<IActionResult> MarkAllRead(int friendId) =>
+        Ok(new { marked = await social.MarkAllRead(UserId, friendId) });
 
     // 2. Replace SendMessage inside SocialController class:
     [HttpPost("messages/{friendId:int}")]

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SmartNotes.Data;
 using SmartNotes.Data.Entities;
@@ -143,76 +144,73 @@ public class VoiceService(AppDbContext db, IWebHostEnvironment env)
     private async Task<List<object>> RunVoiceCommands(int userId, int noteId, int? contributionId, string transcript)
     {
         var results = new List<object>();
+        var lower = transcript.ToLowerInvariant().Replace('’', '\'');
+
+        // Pick ONE command: the longest keyword found ("remind me" beats "remind")
         var keywords = await db.CommandKeywords.ToListAsync();
-        var lower = transcript.ToLowerInvariant();
+        var k = keywords.Where(x => lower.Contains(x.keyword.ToLowerInvariant()))
+                        .OrderByDescending(x => x.keyword.Length)
+                        .FirstOrDefault();
+        if (k == null) return results;
 
-        foreach (var k in keywords)
+        var idx = lower.IndexOf(k.keyword.ToLowerInvariant(), StringComparison.Ordinal);
+        var after = transcript[(idx + k.keyword.Length)..].Trim(' ', ':', '-', ',', '.', '،', '۔');
+
+        if (k.action.Contains("reminder"))
         {
-            var kw = k.keyword.ToLowerInvariant();
-            var idx = lower.IndexOf(kw, StringComparison.Ordinal);
-            if (idx < 0) continue;
-
-            var valueAfter = transcript[(idx + k.keyword.Length)..].Trim(' ', ':', '-', ',', '.');
-            if (string.IsNullOrWhiteSpace(valueAfter)) valueAfter = transcript.Trim();
-
-            // A) ADD LOCATION COMMAND
-            if (k.action.Contains("location", StringComparison.OrdinalIgnoreCase))
+            var (title, whenUtc) = ParseReminder(after);
+            var r = await db.Reminders.FirstOrDefaultAsync(x => x.note_id == noteId && x.contribution_id == contributionId);
+            if (r == null)
             {
-                var loc = await db.Locations.FirstOrDefaultAsync(x => x.note_id == noteId && x.contribution_id == contributionId);
-                if (loc == null)
+                r = new Reminders { note_id = noteId, contribution_id = contributionId, created_by = userId, created_at = DateTime.UtcNow };
+                db.Reminders.Add(r);
+            }
+            r.title = title; r.remind_at = whenUtc; r.is_done = false;
+            await db.SaveChangesAsync();
+            results.Add(new { action = "reminder", title, remindAt = whenUtc });
+        }
+        else if (k.action.Contains("location"))
+        {
+            var place = Regex.Replace(after, @"^(is|at|in|to)\s+", "", RegexOptions.IgnoreCase).Trim();
+            var loc = await db.Locations.FirstOrDefaultAsync(x => x.note_id == noteId && x.contribution_id == contributionId);
+            if (loc == null)
+            {
+                loc = new Locations { note_id = noteId, contribution_id = contributionId, created_by = userId, created_at = DateTime.UtcNow };
+                db.Locations.Add(loc);
+            }
+            loc.place_name = place;
+            await db.SaveChangesAsync();
+            results.Add(new { action = "location", place });
+        }
+        else if (k.action.Contains("exclude"))
+        {
+            if (contributionId == null)
+            {
+                results.Add(new { action = "exclude", error = "Exclusion works only in group notes" });
+                return results;
+            }
+            var members = await (from m in db.NoteMembers
+                join u in db.Users on m.user_id equals u.id
+                where m.note_id == noteId && u.id != userId
+                select u).ToListAsync();
+            var spoken = after.ToLowerInvariant();
+            var member = members.FirstOrDefault(u => spoken.Contains(u.full_name.ToLowerInvariant())
+                                                     || spoken.Contains(u.full_name.Split(' ')[0].ToLowerInvariant()));
+            if (member == null)
+            {
+                results.Add(new { action = "exclude", error = "No group member name found after the keyword" });
+                return results;
+            }
+            if (!await db.NoteExclusions.AnyAsync(e => e.contribution_id == contributionId.Value && e.user_id == member.id))
+            {
+                db.NoteExclusions.Add(new NoteExclusions
                 {
-                    loc = new Locations { note_id = noteId, contribution_id = contributionId, created_by = userId, created_at = DateTime.UtcNow };
-                    db.Locations.Add(loc);
-                }
-                loc.place_name = valueAfter;
+                    note_id = noteId, contribution_id = contributionId.Value,
+                    user_id = member.id, created_by = userId
+                });
                 await db.SaveChangesAsync();
-                results.Add(new { action = "location", keyword = k.keyword, value = valueAfter });
             }
-            // B) ADD REMINDER COMMAND
-            else if (k.action.Contains("reminder", StringComparison.OrdinalIgnoreCase))
-            {
-                var r = await db.Reminders.FirstOrDefaultAsync(x => x.note_id == noteId && x.contribution_id == contributionId);
-                if (r == null)
-                {
-                    r = new Reminders { note_id = noteId, contribution_id = contributionId, created_by = userId, created_at = DateTime.UtcNow };
-                    db.Reminders.Add(r);
-                }
-                r.title = valueAfter;
-                r.remind_at = DateTime.UtcNow.AddDays(1);
-                r.is_done = false;
-                await db.SaveChangesAsync();
-                results.Add(new { action = "reminder", keyword = k.keyword, value = valueAfter });
-            }
-            // C) EXCLUDE USER IN GROUP NOTE COMMAND
-            else if (k.action.Contains("exclude", StringComparison.OrdinalIgnoreCase) && contributionId != null)
-            {
-                // Find any group member whose name is spoken in the transcript
-                var members = await (from m in db.NoteMembers
-                                     join u in db.Users on m.user_id equals u.id
-                                     where m.note_id == noteId && u.id != userId
-                                     select u).ToListAsync();
-
-                foreach (var member in members)
-                {
-                    var firstName = member.full_name.Split(' ')[0].ToLowerInvariant();
-                    if (lower.Contains(member.full_name.ToLowerInvariant()) || lower.Contains(firstName))
-                    {
-                        var exists = await db.NoteExclusions.AnyAsync(e => e.contribution_id == contributionId.Value && e.user_id == member.id);
-                        if (!exists)
-                        {
-                            db.NoteExclusions.Add(new NoteExclusions
-                            {
-                                note_id = noteId,
-                                contribution_id = contributionId.Value,
-                                user_id = member.id,
-                                created_by = userId
-                            });
-                            await db.SaveChangesAsync();
-                        }
-                        results.Add(new { action = "exclude", excludedUser = member.full_name });
-                    }
-                }
-            }
+            results.Add(new { action = "exclude", excludedUser = member.full_name });
         }
         return results;
     }
@@ -228,5 +226,62 @@ public class VoiceService(AppDbContext db, IWebHostEnvironment env)
 
         db.VoiceNotes.Remove(v);
         await db.SaveChangesAsync();
+    }
+    
+    
+    
+    
+    // Pakistan is UTC+5. We store UTC, so we convert spoken local time to UTC.
+    private static readonly TimeSpan LocalOffset = TimeSpan.FromHours(5);
+
+    // "to call Ali tomorrow at 3 pm" -> (title: "call Ali", time in UTC)
+    private static (string title, DateTime whenUtc) ParseReminder(string text)
+    {
+        var localNow = DateTime.UtcNow + LocalOffset;
+        var date = localNow.Date.AddDays(1);      // default day: tomorrow
+        int hour = 9, minute = 0;                 // default time: 9:00 AM
+
+        // 1. Which day? (English + Urdu words)
+        foreach (var (word, days) in new[] { ("day after tomorrow", 2), ("parso", 2), ("پرسوں", 2),
+                                             ("tomorrow", 1), ("kal", 1), ("کل", 1),
+                                             ("today", 0), ("aaj", 0), ("آج", 0) })
+            if (RemoveWord(ref text, word)) { date = localNow.Date.AddDays(days); break; }
+
+        foreach (var d in Enum.GetValues<DayOfWeek>())            // "Thursday" = the next Thursday
+            if (RemoveWord(ref text, d.ToString()))
+            {
+                var diff = ((int)d - (int)localNow.DayOfWeek + 7) % 7;
+                date = localNow.Date.AddDays(diff == 0 ? 7 : diff);
+            }
+
+        // 2. What time? "3 pm", "10:30 am", "9 بجے", "9 baje"
+        var m = Regex.Match(text, @"(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|baje|بجے)", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            var h = int.Parse(m.Groups[1].Value);
+            var min = m.Groups[2].Success ? int.Parse(m.Groups[2].Value) : 0;
+            var suffix = m.Groups[3].Value.ToLower();
+            if (suffix.StartsWith("p") && h < 12) h += 12;
+            if (suffix.StartsWith("a") && h == 12) h = 0;
+            if (h <= 23 && min <= 59) { hour = h; minute = min; }
+            text = text.Remove(m.Index, m.Length);
+        }
+
+        // 3. Clean the title
+        foreach (var filler in new[] { "please", "laga do", "lagado", "lagao", "kar do" })
+            RemoveWord(ref text, filler);
+        text = Regex.Replace(text, @"^\s*(to|for|ko|that|at|on)\s+", "", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\s+", " ").Trim(' ', ',', '.', '،', '۔', ':', '-');
+        if (text == "") text = "Reminder";
+
+        return (text, date.AddHours(hour).AddMinutes(minute) - LocalOffset);
+    }
+
+    private static bool RemoveWord(ref string text, string word)
+    {
+        var pattern = $@"(?<!\w){Regex.Escape(word)}(?!\w)";
+        if (!Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase)) return false;
+        text = Regex.Replace(text, pattern, "", RegexOptions.IgnoreCase);
+        return true;
     }
 }

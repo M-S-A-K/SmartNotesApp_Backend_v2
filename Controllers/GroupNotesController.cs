@@ -7,6 +7,7 @@ public record AddMemberRequest(int UserId);
 public record ContributionRequest(string Type, string Text, string? SubLocation, decimal? Latitude, decimal? Longitude, DateTime? RemindAt);
 public record EditContributionRequest(string Text);
 public record ExcludeRequest(int ExcludedUserId);
+public record TransferRequest(int NewOwnerId);
 
 [ApiController]
 [Route("api/notes/{noteId:int}")]
@@ -55,5 +56,19 @@ public class GroupNotesController(GroupNotesService group) : ApiController
     {
         await group.ExcludeMember(UserId, noteId, contributionId, r.ExcludedUserId);
         return Ok(new { contributionId, r.ExcludedUserId });
+    }
+    
+    [HttpPost("transfer")]
+    public async Task<IActionResult> Transfer(int noteId, TransferRequest r)
+    {
+        await group.TransferOwnership(UserId, noteId, r.NewOwnerId);
+        return Ok(new { noteId, newOwnerId = r.NewOwnerId });
+    }
+
+    [HttpDelete("members/me")]
+    public async Task<IActionResult> Leave(int noteId)
+    {
+        await group.LeaveGroup(UserId, noteId);
+        return Ok(new { noteId });
     }
 }

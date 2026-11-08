@@ -260,10 +260,10 @@ Content-Type: multipart/form-data; boundary=boundary
 X-User-Id: 1
 
 --boundary
-Content-Disposition: form-data; name="file"; filename="Model_Check_Voice_Sample.m4a"
-Content-Type: audio/mp4
+Content-Disposition: form-data; name="file"; filename="sample_urdu.16k.wav"
+Content-Type: audio/wav
 
-< ./Model_Check_Voice_Sample.m4a
+< ./sample_urdu.16k.wav
 --boundary--
 
 

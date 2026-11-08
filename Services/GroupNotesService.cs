@@ -172,11 +172,17 @@ public class GroupNotesService(AppDbContext db)
         var note = await GetGroupNote(userId, noteId);
         var c = await db.Contributions.FirstOrDefaultAsync(x => x.id == contributionId && x.note_id == noteId)
             ?? throw new AppException(404, "Contribution not found");
-
-        // Author ya group owner delete kar sakta hai
         if (c.user_id != userId && note.owner_id != userId)
             throw new AppException(403, "You can only delete your own contribution");
 
+        // 1. delete what belongs to it first, and save
+        db.NoteExclusions.RemoveRange(db.NoteExclusions.Where(e => e.contribution_id == contributionId));
+        db.Reminders.RemoveRange(db.Reminders.Where(r => r.contribution_id == contributionId));
+        db.Locations.RemoveRange(db.Locations.Where(l => l.contribution_id == contributionId));
+        db.VoiceNotes.RemoveRange(db.VoiceNotes.Where(v => v.contribution_id == contributionId));
+        await db.SaveChangesAsync();
+
+        // 2. then delete the contribution itself
         db.Contributions.Remove(c);
         await db.SaveChangesAsync();
     }
@@ -204,4 +210,33 @@ public class GroupNotesService(AppDbContext db)
             await db.SaveChangesAsync();
         }
     }
+    
+    
+    // Owner gives the group to another member (owner must do this before leaving)
+    public async Task TransferOwnership(int userId, int noteId, int newOwnerId)
+    {
+        var note = await GetGroupNote(userId, noteId);
+        if (note.owner_id != userId) throw new AppException(403, "Only the owner can transfer ownership");
+        if (newOwnerId == userId) throw new AppException(400, "You are already the owner");
+        var isMember = await db.NoteMembers.AnyAsync(m => m.note_id == noteId && m.user_id == newOwnerId);
+        if (!isMember) throw new AppException(400, "The new owner must be a member of this group");
+        note.owner_id = newOwnerId;
+        note.updated_at = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
+    // A member leaves. The owner must transfer ownership first. Their contributions stay.
+    public async Task LeaveGroup(int userId, int noteId)
+    {
+        var note = await GetGroupNote(userId, noteId);
+        if (note.owner_id == userId)
+            throw new AppException(400, "You are the owner. Transfer ownership to another member first.");
+        var m = await db.NoteMembers.FirstOrDefaultAsync(x => x.note_id == noteId && x.user_id == userId)
+            ?? throw new AppException(404, "You are not a member");
+        db.NoteMembers.Remove(m);
+        await db.SaveChangesAsync();
+    }
+
+
+    
 }

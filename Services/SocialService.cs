@@ -104,6 +104,9 @@ public class SocialService(AppDbContext db)
     {
         string? sharedTitle = null;
         string? sharedContent = null;
+        
+        if (!await db.Friendships.AnyAsync(f => f.user_id == userId && f.friend_id == friendId))
+            throw new AppException(403, "You can only message your friends");
 
         if (sharedNoteId != null)
         {
@@ -174,6 +177,25 @@ public class SocialService(AppDbContext db)
         };
     }
 
+    
+    public async Task MarkRead(int userId, int messageId)
+    {
+        var m = await db.Messages.FirstOrDefaultAsync(x => x.id == messageId && x.receiver_id == userId)
+                ?? throw new AppException(404, "Message not found");
+        m.is_read = true;
+        await db.SaveChangesAsync();
+    }
+
+// Call this when the user opens a chat
+    public async Task<int> MarkAllRead(int userId, int friendId)
+    {
+        var unread = await db.Messages
+            .Where(m => m.sender_id == friendId && m.receiver_id == userId && !m.is_read).ToListAsync();
+        foreach (var m in unread) m.is_read = true;
+        await db.SaveChangesAsync();
+        return unread.Count;
+    }
+    
     // --- GLOBAL SEARCH (Notes + Group Contributions + Messages) ---
     public async Task<object> Search(int userId, string q)
     {
@@ -195,4 +217,7 @@ public class SocialService(AppDbContext db)
 
         return new { notes, messages };
     }
+    
+    
+    
 }
