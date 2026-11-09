@@ -48,6 +48,7 @@ public class GroupNotesService(AppDbContext db)
             db.NoteMembers.Add(new NoteMembers { note_id = noteId, user_id = targetUserId, joined_at = DateTime.UtcNow });
             await db.SaveChangesAsync();
         }
+        await NotifyMembers(noteId);
         return new { note_id = noteId, user_id = targetUserId };
     }
 
@@ -62,6 +63,7 @@ public class GroupNotesService(AppDbContext db)
 
         db.NoteMembers.Remove(m);
         await db.SaveChangesAsync();
+        await NotifyMembers(noteId);
     }
 
     // --- CONTRIBUTIONS (Text, Location, Reminder entries by members) ---
@@ -150,6 +152,7 @@ public class GroupNotesService(AppDbContext db)
 
         note.updated_at = now;
         await db.SaveChangesAsync();
+        await NotifyMembers(noteId);
         return new { c.id, c.type, c.text, c.user_id, c.created_at };
     }
 
@@ -164,6 +167,7 @@ public class GroupNotesService(AppDbContext db)
             throw new AppException(403, "You can only edit your own contribution");
 
         c.text = text.Trim();
+        await NotifyMembers(noteId);
         await db.SaveChangesAsync();
     }
 
@@ -185,6 +189,7 @@ public class GroupNotesService(AppDbContext db)
         // 2. then delete the contribution itself
         db.Contributions.Remove(c);
         await db.SaveChangesAsync();
+        await NotifyMembers(noteId);
     }
 
     // --- EXCLUSIONS (Hide a contribution from a specific member) ---
@@ -237,6 +242,11 @@ public class GroupNotesService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    private async Task NotifyMembers(int noteId)
+    {
+        var ids = await db.NoteMembers.Where(m => m.note_id == noteId).Select(m => m.user_id).ToArrayAsync();
+        await Realtime.Notify(ids);
+    }
 
     
 }

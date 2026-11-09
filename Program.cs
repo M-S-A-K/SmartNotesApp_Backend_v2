@@ -29,6 +29,7 @@ app.Use(async (ctx, next) =>
         await ctx.Response.WriteAsJsonAsync(new { error = e.Message });
     }
 });
-
+app.UseWebSockets();
+app.Map("/ws", Realtime.Handle);
 app.MapControllers();
 app.Run();

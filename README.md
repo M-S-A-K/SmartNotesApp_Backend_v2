@@ -14,6 +14,19 @@ Backend API for **Smart Notes** built with .NET (ASP.NET Core), Entity Framework
 5. [Entity Relationship Diagram (ERD)](#entity-relationship-diagram-erd)
 6. [How to Run the Application](#how-to-run-the-application)
 7. [Demo Accounts](#demo-accounts)
+8. [Realtime WebSockets](#realtime-websockets)
+9. [Complete API Reference](#complete-api-reference)
+   - [Authentication Endpoints (`/api/auth`)](#1-authentication-endpoints-apiauth)
+   - [Personal & Base Notes Endpoints (`/api/notes`)](#2-personal--base-notes-endpoints-apinotes)
+   - [Tags Endpoints (`/api/notes`)](#3-tags-endpoints-apinotes)
+   - [Note Lock & Privacy Endpoints (`/api/notes`)](#4-note-lock--privacy-endpoints-apinotes)
+   - [Reminders Endpoints (`/api/notes`)](#5-reminders-endpoints-apinotes)
+   - [Locations Endpoints (`/api/notes`)](#6-locations-endpoints-apinotes)
+   - [Group Notes & Collaboration Endpoints (`/api/notes/{noteId}`)](#7-group-notes--collaboration-endpoints-apinotesnoteid)
+   - [Voice Notes & Offline Whisper AI Endpoints (`/api/notes`)](#8-voice-notes--offline-whisper-ai-endpoints-apinotes)
+   - [Profile & Friends Endpoints (`/api`)](#9-profile--friends-endpoints-api)
+   - [Direct Messaging & Chat Endpoints (`/api`)](#10-direct-messaging--chat-endpoints-api)
+   - [Global Search & Health Endpoints](#11-global-search--health-endpoints)
 
 ---
 
@@ -595,4 +608,400 @@ All demo accounts use the user's first name in lowercase + `1234`:
 | Bilal Hussain | `bilal@smartnotes.pk` | `bilal1234` |
 
 *(Locked note password in demo data: `lock1234`)*
+
+---
+
+## Realtime WebSockets
+
+Smart Notes includes a high-performance, lightweight WebSocket notification system for real-time synchronization across devices (iOS, Android, Web).
+
+- **WebSocket URL**: `ws://<host>:5262/ws` (or `wss://<host>:7123/ws` for HTTPS)
+- **Authentication**: Pass user ID via either:
+  - Header: `X-User-Id: <userId>`
+  - Query Parameter: `?userId=<userId>` (recommended for mobile and browser WebSocket clients)
+- **Message Protocol**:
+  - The server sends a lightweight text frame `"update"` whenever relevant data changes for that user.
+  - **Trigger Events**:
+    - **Group Notes**: Adding/removing members, creating, updating, or deleting group contributions (text, location, reminder, voice).
+    - **Direct Messaging**: Receiving a new message or when unread messages are marked as read.
+  - When the client receives `"update"`, it triggers an immediate background refresh of the active view.
+
+---
+
+## Complete API Reference
+
+> **Authentication Convention**:
+> All endpoints except `/api/auth/*`, `/api/health`, and public audio file streaming require the client to supply the authenticated user's ID via the HTTP header:
+> ```http
+> X-User-Id: <integer>
+> ```
+
+### 1. Authentication Endpoints (`/api/auth`)
+
+| Method | Endpoint | Description | Request Body |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Register a new user account | `{ "fullName": "...", "email": "...", "password": "..." }` |
+| `POST` | `/api/auth/login` | Authenticate with credentials | `{ "email": "...", "password": "..." }` |
+
+#### `POST /api/auth/register`
+Creates a new user in the system with their full name, unique email address, and password.
+- **Request Body**:
+  ```json
+  {
+    "fullName": "Hamza Malik",
+    "email": "hamza@smartnotes.pk",
+    "password": "hamza1234"
+  }
+  ```
+- **Response `200 OK`**:
+  ```json
+  {
+    "userId": 5,
+    "fullName": "Hamza Malik",
+    "email": "hamza@smartnotes.pk"
+  }
+  ```
+
+#### `POST /api/auth/login`
+Validates user credentials and returns the user's ID and profile information.
+- **Request Body**:
+  ```json
+  {
+    "email": "usman@smartnotes.pk",
+    "password": "usman1234"
+  }
+  ```
+- **Response `200 OK`**:
+  ```json
+  {
+    "userId": 1,
+    "fullName": "Usman Ahmed",
+    "email": "usman@smartnotes.pk"
+  }
+  ```
+
+---
+
+### 2. Personal & Base Notes Endpoints (`/api/notes`)
+
+| Method | Endpoint | Description | Header / Query |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/notes` | Create a new personal or group note | `X-User-Id` |
+| `GET` | `/api/notes` | List accessible notes with optional filters | `X-User-Id`, `?tag=`, `?type=` |
+| `GET` | `/api/notes/{id}` | Get full details of a specific note | `X-User-Id` |
+| `PUT` | `/api/notes/{id}` | Update title and content of a personal note | `X-User-Id` |
+| `DELETE` | `/api/notes/{id}` | Permanently delete a note and its children | `X-User-Id` |
+| `GET` | `/api/notes/calendar` | Get upcoming calendar events/reminders | `X-User-Id` |
+
+#### `POST /api/notes`
+Creates either a `personal` note (with direct title and content) or a `group` collaborative note.
+- **Request Body**:
+  ```json
+  {
+    "title": "Semester Project Architecture",
+    "content": "Review database ERD and API routes.",
+    "noteType": "personal"
+  }
+  ```
+  *(For group notes, set `"noteType": "group"` and `"content": null`)*
+
+#### `GET /api/notes`
+Returns a list of all notes owned by or shared with the authenticated user.
+- **Query Parameters**:
+  - `tag` *(optional)*: Filter by tag name (e.g. `?tag=Study`)
+  - `type` *(optional)*: Filter by note type: `personal` or `group` (e.g. `?type=group`)
+
+#### `GET /api/notes/{id}`
+Fetches complete details for a single note including associated tags, reminders, locations, voice notes, and contributions. If the note is password-locked, confidential fields are hidden until verified.
+
+#### `PUT /api/notes/{id}`
+Updates the title and content of an existing personal note owned by the authenticated user.
+- **Request Body**:
+  ```json
+  {
+    "title": "Updated Architecture Plan",
+    "content": "Updated content with new diagrams.",
+    "noteType": "personal"
+  }
+  ```
+
+#### `DELETE /api/notes/{id}`
+Deletes a note owned by the authenticated user. Cascades and deletes all attached tags, reminders, locations, audio recordings, contributions, and member associations.
+
+#### `GET /api/notes/calendar`
+Aggregates all scheduled reminders from both personal notes and joined group notes into a unified chronological calendar feed for the user.
+
+---
+
+### 3. Tags Endpoints (`/api/notes`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/notes/tags` | List all unique tags created by the user |
+| `POST` | `/api/notes/{id}/tags` | Add a tag to a note (creates tag if new) |
+| `DELETE` | `/api/notes/{id}/tags/{tagId}` | Remove a tag from a specific note |
+
+#### `POST /api/notes/{id}/tags`
+- **Request Body**:
+  ```json
+  {
+    "name": "Urgent"
+  }
+  ```
+
+---
+
+### 4. Note Lock & Privacy Endpoints (`/api/notes`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/notes/{id}/lock` | Set a lock password on a personal note |
+| `POST` | `/api/notes/{id}/verify-lock` | Verify password to unlock and read note content |
+| `POST` | `/api/notes/{id}/unlock` | Permanently remove password lock from note |
+
+#### `POST /api/notes/{id}/lock`
+Locks a personal note with a secret PIN or password.
+- **Request Body**:
+  ```json
+  {
+    "password": "secretPassword123"
+  }
+  ```
+
+#### `POST /api/notes/{id}/verify-lock`
+Validates the password when a user opens a locked note.
+- **Request Body**:
+  ```json
+  {
+    "password": "secretPassword123"
+  }
+  ```
+- **Response `200 OK`**: `{ "ok": true }`
+
+#### `POST /api/notes/{id}/unlock`
+Removes the password lock permanently by validating the current password.
+- **Request Body**:
+  ```json
+  {
+    "password": "secretPassword123"
+  }
+  ```
+
+---
+
+### 5. Reminders Endpoints (`/api/notes`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/notes/{id}/reminders` | Add a reminder to a personal note |
+| `PUT` | `/api/notes/{id}/reminders/{reminderId}/toggle` | Toggle completion status (`is_completed`) |
+| `DELETE` | `/api/notes/{id}/reminders/{reminderId}` | Delete a reminder from a personal note |
+
+#### `POST /api/notes/{id}/reminders`
+- **Request Body**:
+  ```json
+  {
+    "title": "Submit Assignment on LMS",
+    "remindAt": "2026-11-12T17:00:00Z"
+  }
+  ```
+
+---
+
+### 6. Locations Endpoints (`/api/notes`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/notes/{id}/locations` | Attach a geographic location / place to a note |
+| `DELETE` | `/api/notes/{id}/locations/{locationId}` | Delete a location from a note |
+
+#### `POST /api/notes/{id}/locations`
+- **Request Body**:
+  ```json
+  {
+    "placeName": "Shifa International Hospital",
+    "subLocation": "OPD Block B, Islamabad",
+    "latitude": 33.6844,
+    "longitude": 73.0479
+  }
+  ```
+
+---
+
+### 7. Group Notes & Collaboration Endpoints (`/api/notes/{noteId}`)
+
+Collaborative group notes allow multiple members to contribute text, reminders, locations, and voice recordings.
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/notes/{noteId}/members` | List all members in the group note |
+| `POST` | `/api/notes/{noteId}/members` | Add a user to the group note *(notifies via WS)* |
+| `DELETE` | `/api/notes/{noteId}/members/{memberId}` | Remove a member from the group note *(owner only, notifies via WS)* |
+| `DELETE` | `/api/notes/{noteId}/members/me` | Leave the group note (for regular members) |
+| `POST` | `/api/notes/{noteId}/transfer` | Transfer group ownership to another member |
+| `GET` | `/api/notes/{noteId}/contributions` | List all contributions (hides excluded items) |
+| `POST` | `/api/notes/{noteId}/contributions` | Add a contribution (text, location, reminder) *(notifies via WS)* |
+| `PUT` | `/api/notes/{noteId}/contributions/{contributionId}` | Edit own text contribution *(notifies via WS)* |
+| `DELETE` | `/api/notes/{noteId}/contributions/{contributionId}` | Delete a contribution *(author or owner, notifies via WS)* |
+| `POST` | `/api/notes/{noteId}/contributions/{contributionId}/exclude` | Hide a contribution from a specific member |
+
+#### `POST /api/notes/{noteId}/members`
+Adds a registered user into the collaborative group note.
+- **Request Body**: `{ "userId": 2 }`
+
+#### `GET /api/notes/{noteId}/contributions`
+Retrieves all contributions for the group note. Automatically filters out any contributions that have an exclusion rule applied to the current requesting user (`NoteExclusions`).
+
+#### `POST /api/notes/{noteId}/contributions`
+Adds a new entry to the group note.
+- **Request Body (Text)**:
+  ```json
+  {
+    "type": "text",
+    "text": "Finalized the project documentation."
+  }
+  ```
+- **Request Body (Reminder)**:
+  ```json
+  {
+    "type": "reminder",
+    "text": "Meeting with Project Supervisor",
+    "remindAt": "2026-11-15T11:00:00Z"
+  }
+  ```
+- **Request Body (Location)**:
+  ```json
+  {
+    "type": "location",
+    "text": "NUST SEECS Seminar Hall",
+    "subLocation": "Sector H-12, Islamabad",
+    "latitude": 33.6425,
+    "longitude": 72.9904
+  }
+  ```
+
+#### `POST /api/notes/{noteId}/contributions/{contributionId}/exclude`
+Enables selective privacy within a shared group note by hiding a specific contribution from a chosen member.
+- **Request Body**:
+  ```json
+  {
+    "excludedUserId": 5
+  }
+  ```
+
+#### `POST /api/notes/{noteId}/transfer`
+Transfers the owner role of the group note to another active member.
+- **Request Body**:
+  ```json
+  {
+    "newOwnerId": 2
+  }
+  ```
+
+---
+
+### 8. Voice Notes & Offline Whisper AI Endpoints (`/api/notes`)
+
+The backend integrates an offline bilingual Whisper model (`models/ggml-small-ur-en.bin`) for local speech-to-text in English & Urdu and automated command extraction.
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/notes/{noteId}/voice` | Upload voice audio, transcribe with Whisper AI, process voice commands |
+| `DELETE` | `/api/notes/{noteId}/voice/{voiceId}` | Delete a voice note record and its audio file from storage |
+| `GET` | `/api/notes/voice/file/{fileName}` | Stream audio file with HTTP range/seeking support |
+
+#### `POST /api/notes/{noteId}/voice`
+Accepts `multipart/form-data`:
+- `file` *(optional if pre-transcribed, required for raw audio)*: `.wav`, `.m4a`, or `.mp3` audio file.
+- `displayName` *(optional)*: Label for the recording.
+- `durationSeconds` *(optional)*: Audio length in seconds.
+- `transcript` *(optional)*: Client-supplied transcript. If omitted, the backend runs Whisper AI automatically.
+- `language` *(optional)*: Language hint (`ur` for Urdu, `en` for English, or `auto`).
+
+**Automatic Voice Command Extraction**:
+During transcription, spoken commands in English or Urdu are automatically recognized:
+- *"reminder laga do ..."* / *"set a reminder ..."* $\rightarrow$ Automatically generates a linked `Reminder`.
+- *"location is ..."* / *"jagah ..."* $\rightarrow$ Automatically creates a linked `Location`.
+- *"don't share this with [Name]"* / *"Ali ko na dikhana"* $\rightarrow$ In group notes, automatically creates a `NoteExclusion` hiding the voice contribution from the named user.
+
+#### `GET /api/notes/voice/file/{fileName}`
+Streams the audio recording directly from server storage (`uploads/voice/`) with HTTP Range header support (`206 Partial Content`) for instant playback and seeking in mobile and web players.
+
+---
+
+### 9. Profile & Friends Endpoints (`/api`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/profile` | Get current user profile details |
+| `PUT` | `/api/profile` | Update profile (full name, email, phone) |
+| `POST` | `/api/profile/password` | Change account password |
+| `GET` | `/api/friends` | List all friends of the current user |
+| `POST` | `/api/friends` | Add a friend by email or phone |
+| `DELETE` | `/api/friends/{friendId}` | Remove a friendship |
+
+#### `POST /api/friends`
+Establishes a bi-directional friendship between the user and another registered account.
+- **Request Body**:
+  ```json
+  {
+    "emailOrPhone": "ali@smartnotes.pk"
+  }
+  ```
+
+---
+
+### 10. Direct Messaging & Chat Endpoints (`/api`)
+
+1-to-1 real-time messaging with support for sharing snapshot copies of personal notes directly into chat threads.
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/messages/{friendId}` | Get conversation message history with a friend |
+| `POST` | `/api/messages/{friendId}` | Send a direct message or share a note *(notifies via WS)* |
+| `PUT` | `/api/messages/{messageId}/read` | Mark a single message as read |
+| `PUT` | `/api/messages/read-all/{friendId}` | Mark all messages from a friend as read *(notifies via WS)* |
+
+#### `POST /api/messages/{friendId}`
+Sends a direct message. Can optionally include a snapshot of a personal note with fine-grained inclusion flags.
+- **Request Body**:
+  ```json
+  {
+    "text": "Hey Ali, check out these notes from class:",
+    "sharedNoteId": 1,
+    "includeText": true,
+    "includeLocation": true,
+    "includeReminder": false,
+    "includeVoice": false
+  }
+  ```
+
+#### `PUT /api/messages/read-all/{friendId}`
+Marks all unread messages received from `friendId` as read. Pushes a WebSocket notification to `friendId` so their client updates read receipts instantly.
+
+---
+
+### 11. Global Search & Health Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/search?q={query}` | Search across personal notes, contributions, and messages |
+| `GET` | `/api/health` | Service health check returning status and user count |
+
+#### `GET /api/search?q={query}`
+Performs a search for keyword `q` across:
+1. Personal note titles and content.
+2. Group note contributions.
+3. Chat messages sent or received by the user.
+
+#### `GET /api/health`
+Public health probe returning server operational status:
+- **Response `200 OK`**:
+  ```json
+  {
+    "status": "ok",
+    "users": 6
+  }
+  ```
+
 

@@ -169,6 +169,7 @@ public class SocialService(AppDbContext db)
         };
         db.Messages.Add(msg);
         await db.SaveChangesAsync();
+        await Realtime.Notify(friendId, userId);
 
         return new
         {
@@ -186,13 +187,14 @@ public class SocialService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-// Call this when the user opens a chat
+    // Call this when the user opens a chat
     public async Task<int> MarkAllRead(int userId, int friendId)
     {
         var unread = await db.Messages
             .Where(m => m.sender_id == friendId && m.receiver_id == userId && !m.is_read).ToListAsync();
         foreach (var m in unread) m.is_read = true;
         await db.SaveChangesAsync();
+        await Realtime.Notify(friendId);
         return unread.Count;
     }
     
