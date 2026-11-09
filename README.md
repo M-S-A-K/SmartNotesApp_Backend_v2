@@ -30,7 +30,7 @@ Backend API for **Smart Notes** built with .NET (ASP.NET Core), Entity Framework
   
 --- 
 ## FYP Members
-[👥 Final Year Project (FYP) Team](#Final-Year-Project-(FYP)-Team)
+[👥 Final Year Project (FYP) Team](#final-year-project-fyp-team)
 ---
 
 ## How to Clone
@@ -1009,18 +1009,14 @@ Public health probe returning server operational status:
   
 ---
 
-### Final-Year-Project-(FYP)-Team
+### Final Year Project (FYP) Team
 
-HAIQA NAVEED — 2023-ARID-3663
+HAIQA NAVEED — 2023-ARID-3663  
+MUHAMMAD SALIK AMIN KAYANI — 2023-ARID-3816  
+USMAN ALI — 2023-ARID-3942  
+MUHAMMAD SAFFI ULLAH — 2023-ARID-3814  
+RAJA MUHAMMAD NABEEL HUSSAIN — 2023-ARID-3878  
 
-MUHAMMAD SALIK AMIN KAYANI — 2023-ARID-3816
-
-USMAN ALI — 2023-ARID-3942
-
-MUHAMMAD SAFFI ULLAH — 2023-ARID-3814
-
-RAJA MUHAMMAD NABEEL HUSSAIN — 2023-ARID-3878
-
-Supervisor: Sir Saeed
+**Supervisor:** Sir Saeed
 
 
