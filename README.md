@@ -29,7 +29,8 @@ Backend API for **Smart Notes** built with .NET (ASP.NET Core), Entity Framework
    - [Global Search & Health Endpoints](#11-global-search--health-endpoints)
   
 --- 
-[👥 Final Year Project (FYP) Team](👥Final_Year_Project_(FYP)_Team)
+## FYP Members
+[👥 Final Year Project (FYP) Team](#Final-Year-Project-(FYP)-Team)
 ---
 
 ## How to Clone
@@ -1008,7 +1009,7 @@ Public health probe returning server operational status:
   
 ---
 
- ### 👥Final_Year_Project_(FYP)_Team
+### Final-Year-Project-(FYP)-Team
 
 HAIQA NAVEED — 2023-ARID-3663
 
