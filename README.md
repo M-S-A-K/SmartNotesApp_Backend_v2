@@ -27,6 +27,8 @@ Backend API for **Smart Notes** built with .NET (ASP.NET Core), Entity Framework
    - [Profile & Friends Endpoints (`/api`)](#9-profile--friends-endpoints-api)
    - [Direct Messaging & Chat Endpoints (`/api`)](#10-direct-messaging--chat-endpoints-api)
    - [Global Search & Health Endpoints](#11-global-search--health-endpoints)
+  
+--- 
 [👥 Final Year Project (FYP) Team](👥Final_Year_Project_(FYP)_Team)
 ---
 
@@ -1003,14 +1005,21 @@ Public health probe returning server operational status:
     "users": 6
   }
   ```
+  
+---
 
  ### 👥Final_Year_Project_(FYP)_Team
 
 HAIQA NAVEED — 2023-ARID-3663
+
 MUHAMMAD SALIK AMIN KAYANI — 2023-ARID-3816
+
 USMAN ALI — 2023-ARID-3942
+
 MUHAMMAD SAFFI ULLAH — 2023-ARID-3814
+
 RAJA MUHAMMAD NABEEL HUSSAIN — 2023-ARID-3878
+
 Supervisor: Sir Saeed
 
 
